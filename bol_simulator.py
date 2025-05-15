@@ -98,7 +98,7 @@ for (y, x) in nash_points:
     ax.plot(x_idx + 0.5, y_idx + 0.5, 'ro', markersize=12)
 
 ax.set_xlabel("Bol Promo (€)")
-ax.set_ylabel("Competitor Cut (€)")
+ax.set_ylabel("Amazon Promo (€)")
 st.pyplot(fig)
 
 # Summary KPIs (simple and clear)
