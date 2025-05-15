@@ -31,7 +31,7 @@ bol_promo_values = np.round(np.arange(0, 5, 0.5), 2)
 competitor_price_cuts = np.round(np.arange(0, 5, 0.5), 2)
 
 # Realistic assumptions clearly defined
-competitor_margin = 0.15  # realistic competitor profit margin assumption
+competitor_margin = 0.10  # realistic competitor profit margin assumption
 
 simulation_data = []
 for bol_promo in bol_promo_values:
