@@ -60,17 +60,17 @@ for bol_promo in bol_promo_values:
 
         simulation_data.append({
             "Bol Promo (€)": bol_promo,
-            "Competitor Cut (€)": competitor_cut,
+            "Amazon Promo (€)": competitor_cut,
             "Bol Revenue (€)": bol_revenue,
             "Bol Profit (€)": bol_profit,
-            "Competitor Profit (€)": competitor_profit
+            "Amazon Profit (€)": competitor_profit
         })
 
 df_full_simulation = pd.DataFrame(simulation_data)
 
 # Payoff matrices clearly created
-bol_matrix = df_full_simulation.pivot(index='Competitor Cut (€)', columns='Bol Promo (€)', values='Bol Profit (€)')
-competitor_matrix = df_full_simulation.pivot(index='Competitor Cut (€)', columns='Bol Promo (€)', values='Competitor Profit (€)')
+bol_matrix = df_full_simulation.pivot(index='Amazon Promo (€)', columns='Bol Promo (€)', values='Bol Profit (€)')
+competitor_matrix = df_full_simulation.pivot(index='Amazon Promo (€)', columns='Bol Promo (€)', values='Amazon Profit (€)')
 
 # Nash Equilibrium logic (profit vs profit realistically)
 bol_best_response = bol_matrix.idxmax(axis=1)
@@ -116,7 +116,7 @@ st.success(f"Optimal Promo (avg. across scenarios): €{best_bol_promo:.2f}")
 st.subheader("Nash Equilibrium Points (Profit-Based)")
 if nash_points:
     for comp_cut, bol_promo in nash_points:
-        st.info(f"Competitor Cut: €{comp_cut:.2f}, Optimal Bol Promo: €{bol_promo:.2f}")
+        st.info(f"Amazon Promo: €{comp_cut:.2f}, Optimal Bol Promo: €{bol_promo:.2f}")
 else:
     st.warning("No Nash Equilibrium found with current inputs.")
 
