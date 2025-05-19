@@ -17,7 +17,7 @@ st.sidebar.markdown("""
 5. 759948 – Junjie Wang  
 """)
 
-# Sidebar Inputs (simple demo-friendly defaults)
+# Sidebar Inputs
 st.sidebar.header("Input Parameters")
 mrp = st.sidebar.slider("MRP (€)", 10.0, 20.0, 15.0, 0.5)
 kelloggs_promo = st.sidebar.slider("Company's Promo (€)", 0.0, 5.0, 2.0, 0.5)
@@ -26,7 +26,7 @@ base_demand = st.sidebar.slider("Base Demand", 0, 2000, 1000, 100)
 elasticity = st.sidebar.slider("Price Elasticity", -10.0, -0.5, -3.0, 0.1)
 cross_elasticity = st.sidebar.slider("Cross Elasticity", 0.0, 10.0, 1.5, 0.1)
 
-# Promo ranges (simplified for clear demo)
+# Promo ranges 
 bol_promo_values = np.round(np.arange(0, 5, 0.5), 2)
 competitor_price_cuts = np.round(np.arange(0, 5, 0.5), 2)
 
