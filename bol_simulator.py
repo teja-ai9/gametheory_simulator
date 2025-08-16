@@ -6,7 +6,7 @@ import seaborn as sns
 
 # Sidebar: Team Info
 st.sidebar.markdown("""
-### 📘 Strategic Management meets Data Science 
+### Strategic Management meets Data Science 
 **by Teja Bonthalakoti**
 """)
 
