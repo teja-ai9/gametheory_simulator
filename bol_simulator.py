@@ -6,15 +6,8 @@ import seaborn as sns
 
 # Sidebar: Team Info
 st.sidebar.markdown("""
-### 📘 Strategic Management Assignment  
-**by 'Surprise!' (Team B208)**
-
-**Team Members – EUR Student ID & Names:**  
-1. 754019 – Taufiq Abdurrahim  
-2. 752834 – Teja Bonthalakoti  
-3. 753389 – Frida Moncada Alvites  
-4. 757387 – Katherine Schweizer  
-5. 759948 – Junjie Wang  
+### 📘 Strategic Management meets Data Science 
+**by Teja Bonthalakoti**
 """)
 
 # Sidebar Inputs
