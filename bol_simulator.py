@@ -4,120 +4,187 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Sidebar: Team Info
-st.sidebar.markdown("""
-### Strategic Management meets Data Science 
-**by Teja Bonthalakoti**
-""")
+st.set_page_config(page_title="Barilla Promo Strategy – Game Theory Simulator", layout="wide")
 
-# Sidebar Inputs
-st.sidebar.header("Input Parameters")
-mrp = st.sidebar.slider("MRP (€)", 10.0, 20.0, 15.0, 0.5)
-kelloggs_promo = st.sidebar.slider("Company's Promo (€)", 0.0, 5.0, 2.0, 0.5)
-commission_rate = st.sidebar.slider("Commission Rate (%)", 5, 20, 10, 1) / 100
-base_demand = st.sidebar.slider("Base Demand", 0, 2000, 1000, 100)
-elasticity = st.sidebar.slider("Price Elasticity", -10.0, -0.5, -3.0, 0.1)
-cross_elasticity = st.sidebar.slider("Cross Elasticity", 0.0, 10.0, 1.5, 0.1)
+# ========== SIDEBAR ==========
+st.sidebar.markdown("### Barilla – Commercial Data Science Demo\n**Price & Promo Strategy (Game Theory)**\nby **Teja Bonthalakoti**")
+st.sidebar.caption("Assumptions are illustrative and configurable for a live demo.")
 
-# Promo ranges 
-bol_promo_values = np.round(np.arange(0, 5, 0.5), 2)
-competitor_price_cuts = np.round(np.arange(0, 5, 0.5), 2)
+st.sidebar.header("Category & Economics (per pack)")
+category = st.sidebar.selectbox("Category / Use-case", ["Pasta (Core)", "Pasta (Premium)", "Sauces"])
+base_demand = st.sidebar.slider("Base Demand (units)", 200, 20000, 6000, 100)
+wholesale_price = st.sidebar.slider("Barilla Wholesale Price to Retailer (€)", 0.50, 3.50, 1.30, 0.05)
+cogs = st.sidebar.slider("Barilla COGS (€)", 0.20, 1.20, 0.55, 0.01)
 
-# Realistic assumptions clearly defined
-competitor_margin = 0.10  # realistic competitor profit margin assumption
+st.sidebar.header("Retail & Shopper")
+retail_margin_pct = st.sidebar.slider("Retailer Margin on RSP (%)", 10, 40, 25, 1) / 100
+feature_display_cost = st.sidebar.slider("Feature/Display Cost per unit (€)", 0.00, 0.50, 0.05, 0.01)
+pass_through = st.sidebar.slider("Promo Pass-through to Shelf (%)", 50, 100, 80, 5) / 100
+stockout_penalty = st.sidebar.slider("Penalty if Barilla price > Competitor by >5% (multiplier)", 0.30, 1.00, 0.70, 0.05)
 
-simulation_data = []
-for bol_promo in bol_promo_values:
-    for competitor_cut in competitor_price_cuts:
-        bol_final_price = mrp - kelloggs_promo - bol_promo
-        competitor_final_price = mrp - competitor_cut
+st.sidebar.header("Elasticities")
+price_elasticity_barilla = st.sidebar.slider("Barilla Own Price Elasticity", -5.0, -0.5, -2.2, 0.1)
+cross_elast_comp_on_barilla = st.sidebar.slider("Cross Elasticity (Competitor→Barilla)", 0.0, 3.0, 0.60, 0.05)
 
-        # Demand clearly adjusted based on price difference
-        price_ratio = bol_final_price / competitor_final_price
-        penalty = 0.7 if price_ratio > 1.05 else 1.0
+price_elasticity_comp = st.sidebar.slider("Competitor Own Price Elasticity", -5.0, -0.5, -1.8, 0.1)
+cross_elast_barilla_on_comp = st.sidebar.slider("Cross Elasticity (Barilla→Competitor)", 0.0, 3.0, 0.50, 0.05)
 
-        # Bol demand
-        bol_demand = base_demand * ((bol_final_price / (mrp - kelloggs_promo)) ** elasticity)
-        bol_demand *= (competitor_final_price / mrp) ** cross_elasticity
-        bol_demand *= penalty
+st.sidebar.header("Competitor (e.g., Private Label)")
+comp_wholesale_price = st.sidebar.slider("Competitor Wholesale Price (€)", 0.40, 3.00, 1.00, 0.05)
+comp_cogs = st.sidebar.slider("Competitor COGS (€)", 0.15, 1.00, 0.45, 0.01)
 
-        bol_revenue = bol_final_price * commission_rate * bol_demand
-        bol_cost = bol_promo * bol_demand * 0.5  # realistic 50% promo cost
-        bol_profit = bol_revenue - bol_cost
+st.sidebar.header("Promo Grids")
+barilla_trade_disc_grid = np.round(np.arange(0.00, 0.90, 0.05), 2)  # € discount funded by Barilla
+comp_trade_disc_grid = np.round(np.arange(0.00, 0.90, 0.05), 2)      # € discount funded by competitor
 
-        # Competitor demand
-        comp_demand = base_demand * ((competitor_final_price / mrp) ** elasticity)
-        comp_demand *= (bol_final_price / mrp) ** cross_elasticity
+# Helper to compute RSP given wholesale and retailer margin
+def rsp_from_wholesale(wh, margin_pct):
+    # RSP = wholesale / (1 - margin%)
+    return wh / (1 - margin_pct)
 
-        competitor_profit = competitor_final_price * competitor_margin * comp_demand
+# Base (no-promo) shelf prices
+barilla_base_rsp = rsp_from_wholesale(wholesale_price, retail_margin_pct)
+comp_base_rsp = rsp_from_wholesale(comp_wholesale_price, retail_margin_pct)
 
-        simulation_data.append({
-            "Bol Promo (€)": bol_promo,
-            "Amazon Promo (€)": competitor_cut,
-            "Bol Revenue (€)": bol_revenue,
-            "Bol Profit (€)": bol_profit,
-            "Amazon Profit (€)": competitor_profit
+# ========== SIMULATION ==========
+rows = []
+for bar_disc in barilla_trade_disc_grid:
+    for comp_disc in comp_trade_disc_grid:
+        # Pass-through to shelf
+        barilla_shelf_cut = bar_disc * pass_through
+        comp_shelf_cut = comp_disc * pass_through
+
+        barilla_rsp = max(0.01, barilla_base_rsp - barilla_shelf_cut)
+        comp_rsp = max(0.01, comp_base_rsp - comp_shelf_cut)
+
+        # Relative price penalty if Barilla > Competitor by >5%
+        ratio = barilla_rsp / comp_rsp if comp_rsp > 0 else 1.0
+        penalty = stockout_penalty if ratio > 1.05 else 1.0
+
+        # Demand models (own & cross effects)
+        # Normalize to base rsp anchors
+        barilla_demand = base_demand \
+            * (barilla_rsp / barilla_base_rsp) ** (price_elasticity_barilla) \
+            * (comp_rsp / comp_base_rsp) ** (cross_elast_comp_on_barilla) \
+            * penalty
+
+        comp_demand = base_demand \
+            * (comp_rsp / comp_base_rsp) ** (price_elasticity_comp) \
+            * (barilla_rsp / barilla_base_rsp) ** (cross_elast_barilla_on_comp)
+
+        # Manufacturer (Barilla) economics
+        # Trade spend is the *full* bar_disc per unit (what Barilla funds); retailer passes pass_through to shelf
+        barilla_trade_spend = bar_disc * barilla_demand
+        barilla_nsv = (wholesale_price - bar_disc) * barilla_demand  # net sales after trade discount
+        barilla_gross_margin = (wholesale_price - bar_disc - cogs) * barilla_demand
+        barilla_feature_cost = feature_display_cost * barilla_demand
+        barilla_profit = barilla_gross_margin - barilla_feature_cost
+
+        # Retailer margin (for Barilla units)
+        retailer_margin_per_unit_bar = barilla_rsp - (wholesale_price - bar_disc)
+        retailer_margin_bar = retailer_margin_per_unit_bar * barilla_demand
+
+        # Competitor manufacturer & retailer
+        comp_trade_spend = comp_disc * comp_demand
+        comp_nsv = (comp_wholesale_price - comp_disc) * comp_demand
+        comp_gross_margin = (comp_wholesale_price - comp_disc - comp_cogs) * comp_demand
+        comp_profit = comp_gross_margin  # assume no extra feature cost for simplicity
+
+        retailer_margin_per_unit_comp = comp_rsp - (comp_wholesale_price - comp_disc)
+        retailer_margin_comp = retailer_margin_per_unit_comp * comp_demand
+
+        rows.append({
+            "Barilla Trade Disc (€)": bar_disc,
+            "Competitor Trade Disc (€)": comp_disc,
+            "Barilla RSP (€)": barilla_rsp,
+            "Competitor RSP (€)": comp_rsp,
+            "Barilla Demand (u)": barilla_demand,
+            "Competitor Demand (u)": comp_demand,
+            "Barilla NSV (€)": barilla_nsv,
+            "Barilla Profit (€)": barilla_profit,
+            "Retailer Margin – Barilla (€)": retailer_margin_bar,
+            "Competitor Profit (€)": comp_profit,
+            "Retailer Margin – Competitor (€)": retailer_margin_comp,
+            "Retailer Total Margin (€)": retailer_margin_bar + retailer_margin_comp
         })
 
-df_full_simulation = pd.DataFrame(simulation_data)
+df = pd.DataFrame(rows)
 
-# Payoff matrices clearly created
-bol_matrix = df_full_simulation.pivot(index='Amazon Promo (€)', columns='Bol Promo (€)', values='Bol Profit (€)')
-competitor_matrix = df_full_simulation.pivot(index='Amazon Promo (€)', columns='Bol Promo (€)', values='Amazon Profit (€)')
+# ========== PAYOFF MATRICES ==========
+# Manufacturer profit viewpoints (Barilla vs Competitor)
+barilla_matrix = df.pivot(index="Competitor Trade Disc (€)", columns="Barilla Trade Disc (€)", values="Barilla Profit (€)")
+comp_matrix = df.pivot(index="Competitor Trade Disc (€)", columns="Barilla Trade Disc (€)", values="Competitor Profit (€)")
 
-# Nash Equilibrium logic (profit vs profit realistically)
-bol_best_response = bol_matrix.idxmax(axis=1)
-competitor_best_response = competitor_matrix.idxmax(axis=0)
+# Best responses
+barilla_best_response = barilla_matrix.idxmax(axis=1)          # given competitor choice, Barilla's best trade discount
+comp_best_response = comp_matrix.idxmax(axis=0)                # given Barilla choice, Competitor's best trade discount
 
+# Nash equilibria (pure)
 nash_points = []
-for comp_cut in competitor_price_cuts:
-    bol_promo = bol_best_response[comp_cut]
-    optimal_comp_cut = competitor_best_response[bol_promo]
-    if comp_cut == optimal_comp_cut:
-        nash_points.append((comp_cut, bol_promo))
+for comp_disc in comp_trade_disc_grid:
+    bar_disc = barilla_best_response[comp_disc]
+    comp_best = comp_best_response[bar_disc]
+    if np.isclose(comp_disc, comp_best):
+        nash_points.append((comp_disc, bar_disc))
 
-# Streamlit Layout
-st.title("Bol Promo Optimization - Game Theory Simulator")
+# ========== UI ==========
+st.title("Barilla Price & Promo Strategy – Game Theory Simulator")
 
-# Payoff Matrix Heatmap
-st.subheader("Bol Profit Payoff Matrix (€)")
-fig, ax = plt.subplots(figsize=(12, 7))
-sns.heatmap(bol_matrix, annot=True, fmt=".0f", cmap="YlGnBu", ax=ax)
+colA, colB, colC = st.columns(3)
+with colA:
+    best_row_bar = df.loc[df["Barilla Profit (€)"].idxmax()]
+    st.metric("Max Barilla Profit (€)", f"{best_row_bar['Barilla Profit (€)']:.0f}")
+with colB:
+    best_barilla_disc_avg = df.groupby("Barilla Trade Disc (€)")["Barilla Profit (€)"].mean().idxmax()
+    st.metric("Recommended Barilla Trade Discount (avg across competitor moves)", f"€{best_barilla_disc_avg:.2f}")
+with colC:
+    best_row_retailer = df.loc[df["Retailer Total Margin (€)"].idxmax()]
+    st.metric("Max Retailer Total Margin (€)", f"{best_row_retailer['Retailer Total Margin (€)']:.0f}")
 
-# Highlight Nash Equilibrium points clearly
-for (y, x) in nash_points:
-    x_idx = list(bol_matrix.columns).index(x)
-    y_idx = list(bol_matrix.index).index(y)
-    ax.plot(x_idx + 0.5, y_idx + 0.5, 'ro', markersize=12)
+st.subheader("Barilla Profit Payoff Matrix (€)")
+fig1, ax1 = plt.subplots(figsize=(12, 7))
+sns.heatmap(barilla_matrix, annot=False, fmt=".0f", cmap="YlGnBu", ax=ax1)
+for (comp_disc, bar_disc) in nash_points:
+    x_idx = list(barilla_matrix.columns).index(bar_disc)
+    y_idx = list(barilla_matrix.index).index(comp_disc)
+    ax1.plot(x_idx + 0.5, y_idx + 0.5, 'ro', markersize=10)
+ax1.set_xlabel("Barilla Trade Discount (€)")
+ax1.set_ylabel("Competitor Trade Discount (€)")
+ax1.set_title("Barilla Manufacturer Profit")
+st.pyplot(fig1)
 
-ax.set_xlabel("Bol Promo (€)")
-ax.set_ylabel("Amazon Promo (€)")
-st.pyplot(fig)
+st.subheader("Retailer Total Margin (€) – Outcome Surface")
+retailer_matrix = df.pivot(index="Competitor Trade Disc (€)", columns="Barilla Trade Disc (€)", values="Retailer Total Margin (€)")
+fig2, ax2 = plt.subplots(figsize=(12, 7))
+sns.heatmap(retailer_matrix, annot=False, fmt=".0f", cmap="Greys", ax=ax2)
+ax2.set_xlabel("Barilla Trade Discount (€)")
+ax2.set_ylabel("Competitor Trade Discount (€)")
+ax2.set_title("Retailer Margin Landscape")
+st.pyplot(fig2)
 
-# Summary KPIs (simple and clear)
-st.subheader("Summary KPIs")
-best_row = df_full_simulation.loc[df_full_simulation['Bol Profit (€)'].idxmax()]
-#st.metric("Best Bol Promo (€)", f"{best_row['Bol Promo (€)']:.2f}")
-st.metric("Max Profit (€)", f"{best_row['Bol Profit (€)']:.0f}")
-
-# Recommended Bol Promo (average optimal scenario)
-st.subheader("Recommended Bol Promo")
-best_bol_promo = df_full_simulation.groupby("Bol Promo (€)")["Bol Profit (€)"].mean().idxmax()
-st.success(f"Optimal Promo (avg. across scenarios): €{best_bol_promo:.2f}")
-
-# Nash Equilibria displayed clearly
-st.subheader("Nash Equilibrium Points (Profit-Based)")
+st.subheader("Nash Equilibrium (pure strategies)")
 if nash_points:
-    for comp_cut, bol_promo in nash_points:
-        st.info(f"Amazon Promo: €{comp_cut:.2f}, Optimal Bol Promo: €{bol_promo:.2f}")
+    for comp_disc, bar_disc in nash_points:
+        sub = df[(df["Competitor Trade Disc (€)"] == comp_disc) & (df["Barilla Trade Disc (€)"] == bar_disc)].iloc[0]
+        st.info(
+            f"Competitor Trade Disc: €{comp_disc:.2f} | Barilla Trade Disc: €{bar_disc:.2f} "
+            f"→ Barilla Profit: €{sub['Barilla Profit (€)']:.0f}, Retailer Total Margin: €{sub['Retailer Total Margin (€)']:.0f}"
+        )
 else:
-    st.warning("No Nash Equilibrium found with current inputs.")
+    st.warning("No pure-strategy Nash equilibrium found under current assumptions.")
 
-# Download CSV (full results)
+with st.expander("See sample rows"):
+    st.dataframe(df.head(20))
+
 st.subheader("Download Simulation Data")
 st.download_button(
     label="Download CSV",
-    data=df_full_simulation.to_csv(index=False).encode('utf-8'),
-    file_name='bol_promo_simulation.csv',
-    mime='text/csv'
+    data=df.to_csv(index=False).encode("utf-8"),
+    file_name="barilla_promo_game_simulation.csv",
+    mime="text/csv"
+)
+
+st.caption(
+    "Notes: Demand response uses constant elasticities (own & cross). Trade discount is manufacturer-funded; pass-through sets how much reaches shelf. "
+    "Retailer margin uses a % of RSP framing via margin-on-price transformation. This is illustrative and can be calibrated with real price tests / MMM / uplift studies."
 )
